@@ -55,7 +55,7 @@ function App() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary-500 to-purple-600 rounded-2xl shadow-xl p-8 mb-8 text-center text-white">
-          <h1 className="text-4xl font-bold mb-4">AI Free Time Utilizer Assistant</h1>
+          <h1 className="text-4xl font-bold mb-4"> Free Time Utilizer Assistant</h1>
           <p className="text-xl opacity-90">Get personalized responses based on your input</p>
         </div>
 
@@ -196,7 +196,7 @@ function App() {
                     Generating Response...
                   </div>
                 ) : (
-                  'Generate AI Response'
+                  'Generate Response'
                 )}
               </button>
             </form>
