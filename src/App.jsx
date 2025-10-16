@@ -242,7 +242,7 @@ function App() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600">
-          <p>Powered by OpenAI</p>
+          <p>Done by Kalyani Mantramurthi and Charan Teja Naidu</p>
         </div>
       </div>
     </div>
