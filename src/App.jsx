@@ -5,7 +5,7 @@ import './index.css';
 // Backend API base URL
 const API_BASE_URL =
   process.env.NODE_ENV === 'production'
-    ? 'https://flask-smartfreetimeutilizer-j9rh.onrender.com/'
+    ? 'https://flask-smartfreetimeutilizer-j9rh.onrender.com'
     : 'http://localhost:5000';
 
 
