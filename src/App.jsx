@@ -1,4 +1,4 @@
-https://flask-smartfreetimeutilizer-1.onrender.com/ is backend link, import React, { useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import './index.css';
 
