@@ -27,6 +27,7 @@ const App = () => {
   });
 
   const [response, setResponse] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const dropdownOptions = {
@@ -86,13 +87,18 @@ const App = () => {
     e.preventDefault();
     setLoading(true);
     setResponse("");
+    setError("");
 
     try {
       const res = await axios.post(`${API_BASE_URL}/api/process-data`, formData);
       setResponse(res.data.response);
     } catch (err) {
-      console.error(err);
-      setResponse("⚠️ Something went wrong. Please try again.");
+      console.error("API Error:", err);
+      const errorMsg =
+        err.response?.data?.error ||
+        err.message ||
+        "⚠️ Something went wrong. Please try again.";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -100,7 +106,7 @@ const App = () => {
 
   return (
     <div className="flex flex-col md:flex-row h-screen font-poppins bg-green-50">
-      {/* Left: Input Section */}
+      {/* Left Section: Input */}
       <div className="flex flex-col justify-center w-full md:w-1/2 bg-white px-10 py-8 border-r border-green-100 shadow-lg">
         <h1 className="text-3xl font-bold text-green-800 mb-2">
           Smart Free Time Utilizer
@@ -188,7 +194,7 @@ const App = () => {
         </form>
       </div>
 
-      {/* Right: Response Section */}
+      {/* Right Section: Output */}
       <div
         className="w-full md:w-1/2 relative flex flex-col justify-center p-10 bg-cover bg-center"
         style={{
@@ -196,7 +202,7 @@ const App = () => {
             "url('https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1000&q=80')",
         }}
       >
-        {/* Overlay for readability */}
+        {/* Overlay */}
         <div className="absolute inset-0 bg-green-900 bg-opacity-30 backdrop-blur-sm"></div>
 
         <div className="relative z-10">
@@ -209,6 +215,10 @@ const App = () => {
               <p className="text-green-800 italic animate-pulse">
                 ⏳ Generating your personalized response...
               </p>
+            ) : error ? (
+              <div className="p-4 bg-red-100 border border-red-300 text-red-700 rounded-xl shadow-sm">
+                ⚠️ {error}
+              </div>
             ) : response ? (
               <p className="text-green-900 leading-relaxed whitespace-pre-line">
                 {response}
