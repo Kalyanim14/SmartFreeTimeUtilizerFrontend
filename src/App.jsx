@@ -281,7 +281,7 @@ function App() {
 
         {/* Enhanced Footer */}
         <div className="text-center mt-12 text-blue-200/70 backdrop-blur-sm bg-white/5 rounded-2xl p-6 border border-white/10">
-          <p className="text-lg font-semibold">Crafted with ❤️ by Kalyani Mantramurthi and Charan Teja Naidu</p>
+          <p className="text-lg font-semibold">Crafted with care by Kalyani Mantramurthi and Lalitha Shivapriya</p>
           <p className="text-sm mt-2 text-blue-200/50">Transforming idle moments into opportunities for growth</p>
         </div>
       </div>
