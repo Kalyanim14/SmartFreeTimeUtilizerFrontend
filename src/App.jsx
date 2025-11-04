@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import SignIn from "./components/SignIn";
+import SignUp from "./components/SignUp";
+import TimeUtilizer from "./components/TimeUtilizer";
+import History from "./components/History";
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://flask-smartfreetimeutilizer-j9rh.onrender.com"
-    : "http://localhost:5000";
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+<<<<<<< HEAD
 const App = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -223,16 +226,49 @@ const App = () => {
               <p className="text-green-900 leading-relaxed whitespace-pre-line">
                 {response}
               </p>
+=======
+   const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem("isLoggedIn");
+    window.location.href = "/"; // redirect to sign-in
+  };
+
+
+  return (
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            isLoggedIn ? (
+              <Navigate to="/timeutilizer" />
+>>>>>>> 6bf1ee4 (Your message for local changes)
             ) : (
-              <p className="text-green-700 italic text-center">
-                Your AI-generated guidance will appear here!
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+              <SignIn
+                onSwitch={() => (window.location.href = "/signup")}
+                setIsLoggedIn={setIsLoggedIn}
+              />
+            )
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <SignUp
+              onSwitch={() => (window.location.href = "/")}
+              setIsLoggedIn={setIsLoggedIn}
+            />
+          }
+        />
+        <Route
+          path="/timeutilizer"
+          element={<TimeUtilizer onLogout={handleLogout} />}
+        />
+        <Route path="/history" element={<History />} />
+        <Route path="*" element={<SignIn />} />
+      </Routes>
+    </Router>
   );
-};
+}
 
 export default App;
