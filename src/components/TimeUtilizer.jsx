@@ -13,62 +13,129 @@ const TimeUtilizer = () => {
     name: "",
     age: "",
     domain: "",
-    interest: "",
     topic: "",
-    purpose: "",
     time_available: "",
     context: "",
   });
 
-  // --- AI response parser: divides output into sections (safer) ---
+  // --- UPDATED PARSER: supports **1. Title**:, ### headings, and legacy "1. Task:" ---
   function parseTasks(text) {
     if (!text || typeof text !== "string") return { intro: "", tasks: [], proTip: "" };
 
-    const s = text.replace(/\r\n/g, "\n");
-    const proTipMatch = s.match(/Pro Tip:([\s\S]*)$/i);
-    const proTip = proTipMatch ? proTipMatch[1].trim() : "";
-    const core = s.replace(/Pro Tip:[\s\S]*$/i, "").trim();
+    const s = text.replace(/\r\n/g, "\n").trim();
 
+    // Optional "Pro Tip" capture (anywhere, last wins)
+    const proTipMatch = s.match(/^\s*Pro Tip:\s*([\s\S]*)$/im);
+    const proTip = proTipMatch ? proTipMatch[1].trim() : "";
+
+    // Work on a core string with Pro Tip removed (if present)
+    const core = proTipMatch ? s.replace(proTipMatch[0], "").trim() : s;
     if (!core) return { intro: "", tasks: [], proTip };
 
-    // split on headings like "### ..." or triple-dash separators
-    const parts = core.split(/\n#{3,}\s*|^-{3,}\s*$/m).map(p => p.trim()).filter(Boolean);
+    // Try in order: ### headings -> **1. Title**: blocks -> legacy 1. Task:
+    const blocks = [];
 
-    let intro = "";
-    if (parts.length === 0) {
-      return { intro: "", tasks: [], proTip };
-    }
-
-    // If first part does NOT start with "1." etc, treat as intro
-    const firstIsTask = /^\d+\.\s*Task:/i.test(parts[0]);
-    if (!firstIsTask) {
-      intro = parts.shift();
-    }
-
-    const tasks = parts.map((chunk) => {
-      // Extract "1. Task: *Title*" or fallback first line as title
-      const firstLineMatch = chunk.match(/^(\d+)\.\s*Task:\s*\*?(.+?)\*?\s*(?:\n|$)/i);
-      let id = null, title = "", rest = chunk;
-      if (firstLineMatch) {
-        id = firstLineMatch[1];
-        title = firstLineMatch[2].trim();
-        rest = chunk.slice(firstLineMatch[0].length).trim();
+    // 1) ### Headings
+    const headingRegex = /^###\s*[^\n]+$/gm;
+    const headings = [...core.matchAll(headingRegex)];
+    if (headings.length > 0) {
+      for (let i = 0; i < headings.length; i++) {
+        const h = headings[i];
+        const start = h.index;
+        const end = i + 1 < headings.length ? headings[i + 1].index : core.length;
+        const headingLine = h[0].replace(/^###\s*/, "").trim();
+        const body = core.slice(start + h[0].length, end).trim();
+        blocks.push({ heading: headingLine, body });
+      }
+    } else {
+      // 2) **1. Title**: <title>
+      const numberedTitleRegex = /^\s*\*{0,2}\d+\.\s*Title\*{0,2}\s*:\s*(.+)$/gmi;
+      const titleMatches = [...core.matchAll(numberedTitleRegex)];
+      if (titleMatches.length > 0) {
+        for (let i = 0; i < titleMatches.length; i++) {
+          const m = titleMatches[i];
+          const start = m.index;
+          const end = i + 1 < titleMatches.length ? titleMatches[i + 1].index : core.length;
+          const titleText = m[1].trim();
+          const body = core.slice(m.index + m[0].length, end).trim();
+          blocks.push({ heading: titleText, body });
+        }
       } else {
-        const lines = chunk.split("\n");
-        title = lines[0].trim();
-        rest = lines.slice(1).join("\n").trim();
+        // 3) Legacy "1. Task: Title"
+        const legacyTaskRegex = /^\s*(\d+)\.\s*Task:\s*(.+)$/gmi;
+        const legacyMatches = [...core.matchAll(legacyTaskRegex)];
+        if (legacyMatches.length > 0) {
+          for (let i = 0; i < legacyMatches.length; i++) {
+            const m = legacyMatches[i];
+            const start = m.index;
+            const end = i + 1 < legacyMatches.length ? legacyMatches[i + 1].index : core.length;
+            const titleText = m[2].trim();
+            const body = core.slice(m.index + m[0].length, end).trim();
+            blocks.push({ heading: titleText, body });
+          }
+        } else {
+          // No structure detected: show whole body as one block (renderer will raw-fallback)
+          blocks.push({ heading: "", body: core });
+        }
+      }
+    }
+
+    // If first block looks like an intro (no heading), treat as intro
+    let intro = "";
+    if (blocks.length > 0 && !blocks[0].heading) {
+      intro = blocks[0].body;
+      blocks.shift();
+    }
+
+    const tasks = blocks.map(({ heading, body }) => {
+      const headingTitle = heading.replace(/^\*+|\*+$/g, "").trim();
+
+      // Explicit Title in body wins
+      const explicitTitle =
+        body.match(/\*\*Title\*\*\s*:?\s*([^\n]+)\n?/i) ||
+        body.match(/^\s*Title\s*:?\s*([^\n]+)\n?/im);
+      const title = (explicitTitle ? explicitTitle[1] : headingTitle || "Task").trim();
+
+      // Description
+      const descMatch =
+        body.match(/\*\*Description\*\*\s*:?\s*([\s\S]*?)(?=\n\*\*(?:Small Tips|Resources|Why|Build)\*\*|$)/i) ||
+        body.match(/(?:^|\n)Description\s*:?\s*([\s\S]*?)(?=\n(?:Small Tips|Resources|Why|Build)\s*:|$)/i);
+      const description = descMatch ? descMatch[1].trim() : "";
+
+      // Small Tips (bullets)
+      const tipsMatch =
+        body.match(/\*\*Small Tips\*\*\s*:?\s*([\s\S]*)/i) ||
+        body.match(/(?:^|\n)Small Tips\s*:?\s*([\s\S]*)/i);
+      let tips = [];
+      if (tipsMatch) {
+        tips = tipsMatch[1]
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => /^[-*•]\s+/.test(l))
+          .map((l) => l.replace(/^[-*•]\s+/, ""));
       }
 
-      const whyMatch = rest.match(/(?:\*\*Why\*\*:?|\bWhy:)\s*([\s\S]*?)(?=(?:\n(?:\*\*Build|\bBuild:|\*\*Resources|\bResources:))|$)/i);
-      const buildMatch = rest.match(/(?:\*\*Build\*\*:?|\bBuild:)\s*([\s\S]*?)(?=(?:\n(?:\*\*Resources|\bResources:))|$)/i);
-      const resourcesMatch = rest.match(/(?:\*\*Resources\*\*:?|\bResources:)\s*([\s\S]*)/i);
+      // Resources (optional)
+      const resourcesMatch =
+        body.match(/\*\*Resources\*\*\s*:?\s*([\s\S]*)/i) ||
+        body.match(/(?:^|\n)Resources\s*:?\s*([\s\S]*)/i);
+      const resources = resourcesMatch ? resourcesMatch[1].trim() : "";
+
+      // Legacy support: Why / Build
+      const whyMatch =
+        body.match(/(?:\*\*Why\*\*:?|\bWhy:)\s*([\s\S]*?)(?=\n\*\*(?:Build|Resources|Small Tips)\*\*|$)/i) ||
+        body.match(/(?:^|\n)Why\s*:?\s*([\s\S]*?)(?=\n(?:Build|Resources|Small Tips)\s*:|$)/i);
+      const buildMatch =
+        body.match(/(?:\*\*Build\*\*:?|\bBuild:)\s*([\s\S]*?)(?=\n\*\*(?:Resources|Small Tips)\*\*|$)/i) ||
+        body.match(/(?:^|\n)Build\s*:?\s*([\s\S]*?)(?=\n(?:Resources|Small Tips)\s*:|$)/i);
 
       return {
-        id,
         title,
+        description,
+        tips,
+        resources,
         why: whyMatch ? whyMatch[1].trim() : "",
         build: buildMatch ? buildMatch[1].trim() : "",
-        resources: resourcesMatch ? resourcesMatch[1].trim() : "",
       };
     });
 
@@ -77,9 +144,7 @@ const TimeUtilizer = () => {
 
   const [customInputs, setCustomInputs] = useState({
     domain: "",
-    interest: "",
     topic: "",
-    purpose: "",
     time_available: "",
   });
   const [response, setResponse] = useState("");
@@ -102,14 +167,6 @@ const TimeUtilizer = () => {
       "Data Analyst",
       "Other",
     ],
-    interest: [
-      "AI & Machine Learning",
-      "Web Development",
-      "Cybersecurity",
-      "Data Science",
-      "UI/UX Design",
-      "Other",
-    ],
     topic: [
       "Programming",
       "Productivity",
@@ -118,21 +175,12 @@ const TimeUtilizer = () => {
       "Health & Fitness",
       "Other",
     ],
-    purpose: [
-      "Learning something new",
-      "Improving skills",
-      "Relaxing productively",
-      "Exploring hobbies",
-      "Boosting creativity",
-      "Other",
-    ],
     time_available: ["15 minutes", "30 minutes", "1 hour", "2+ hours", "Other"],
   };
 
-  const handleChange = (e) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-    const handleDropdownChange = (e) => {
+  const handleDropdownChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (value !== "Other") {
@@ -143,7 +191,6 @@ const TimeUtilizer = () => {
   const handleCustomChange = (e) => {
     const { name, value } = e.target;
     setCustomInputs((prev) => ({ ...prev, [name]: value }));
-    // Don't update formData here - it causes the single character issue
   };
 
   const handleSubmit = async (e) => {
@@ -153,18 +200,24 @@ const TimeUtilizer = () => {
 
     try {
       const username = localStorage.getItem("username") || "";
-      
-      // Create final payload with custom inputs where "Other" is selected
+
+      // Final payload with custom inputs for "Other"
       const finalData = { ...formData };
       Object.keys(dropdownOptions).forEach((key) => {
         if (formData[key] === "Other" && customInputs[key]) {
           finalData[key] = customInputs[key];
         }
       });
-      
+
       const payload = { ...finalData, username };
       const res = await axios.post(`${API_BASE_URL}/api/process-data`, payload);
       setResponse(res.data.response || "No response returned.");
+      // console.log("LLM RAW >>>", res.data.response); // uncomment for debugging
+
+      // Auto-scroll to output
+      setTimeout(() => {
+        document.getElementById("output-box")?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
     } catch (err) {
       console.error(err);
       setResponse("⚠️ Something went wrong. Please try again.");
@@ -174,7 +227,7 @@ const TimeUtilizer = () => {
   };
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
+
   const handleLogout = () => {
     setIsLoggedIn(false);
     localStorage.removeItem("isLoggedIn");
@@ -228,30 +281,30 @@ const TimeUtilizer = () => {
             >
               History
             </Link>
-              <div className="flex items-center gap-3 ml-4">
-                <div className="w-9 h-9 rounded-full bg-green-700 text-white flex items-center justify-center font-medium text-lg">
-                  {initials(displayName)}
-                </div>
-                <div className="text-right">
-                  <div className="text-base font-medium text-green-800">
-                    {displayName}
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm text-red-600 hover:underline"
-                  >
-                    Logout
-                  </button>
-                </div>
+            <div className="flex items-center gap-3 ml-4">
+              <div className="w-9 h-9 rounded-full bg-green-700 text-white flex items-center justify-center font-medium text-lg">
+                {initials(displayName)}
               </div>
+              <div className="text-right">
+                <div className="text-base font-medium text-green-800">
+                  {displayName}
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm text-red-600 hover:underline"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* Left: Form */}
-        <section className="lg:col-span-5 bg-white rounded-2xl shadow-md p-8">
+      {/* Main content (stacked, output below form) */}
+      <main className="max-w-3xl mx-auto px-6 py-10 flex flex-col gap-10">
+        {/* Form */}
+        <section className="bg-white rounded-2xl shadow-md p-8">
           <h2 className="text-2xl font-semibold text-green-800 mb-3">
             Welcome{displayName ? `, ${displayName}` : ""}! 👋
           </h2>
@@ -264,9 +317,7 @@ const TimeUtilizer = () => {
             {/* Name & Age */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-green-800 font-medium text-sm">
-                  Name
-                </label>
+                <label className="text-green-800 font-medium text-sm">Name</label>
                 <input
                   name="name"
                   value={formData.name}
@@ -309,15 +360,16 @@ const TimeUtilizer = () => {
                     ))}
                   </select>
 
-                    {formData[key] === "Other" && (
-                      <input
-                        type="text"
-                        name={key}
-                        value={customInputs[key]}
-                        onChange={handleCustomChange}
-                        placeholder={`Enter custom ${key.replace("_", " ")}`}
-                        className="mt-2 w-full border border-green-200 rounded-xl px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-300"/>
-                    )}
+                  {formData[key] === "Other" && (
+                    <input
+                      type="text"
+                      name={key}
+                      value={customInputs[key]}
+                      onChange={handleCustomChange}
+                      placeholder={`Enter custom ${key.replace("_", " ")}`}
+                      className="mt-2 w-full border border-green-200 rounded-xl px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-300"
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -351,18 +403,14 @@ const TimeUtilizer = () => {
           </form>
         </section>
 
-        {/* Right: Response */}
-        <section className="lg:col-span-7 flex flex-col gap-4">
-          <div className="bg-white rounded-2xl shadow-md p-8 flex flex-col h-full">
+        {/* Output below the form */}
+        <section className="flex flex-col gap-4">
+          <div className="bg-white rounded-2xl shadow-md p-8 flex flex-col">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-green-800">
-                Personalized Result
-              </h3>
+              <h3 className="text-xl font-semibold text-green-800">Personalized Result</h3>
               <div className="flex gap-3">
                 <button
-                  onClick={() =>
-                    response && navigator.clipboard.writeText(response)
-                  }
+                  onClick={() => response && navigator.clipboard.writeText(response)}
                   className="text-green-700 bg-green-100 hover:bg-green-200 px-4 py-2 rounded-lg text-sm font-medium"
                 >
                   Copy
@@ -376,33 +424,66 @@ const TimeUtilizer = () => {
               </div>
             </div>
 
-            <div className="mt-5 flex-1 overflow-y-auto">
-              <div className="border border-green-100 rounded-xl bg-green-50/50 p-6 min-h-[250px]">
+            <div className="mt-5">
+              <div
+                id="output-box"
+                className="border border-green-100 rounded-xl bg-green-50/50 p-6 max-h-[70vh] overflow-y-auto"
+              >
                 {loading ? (
                   <p className="text-green-700 text-lg animate-pulse">
                     ⏳ Generating your personalized suggestions...
                   </p>
                 ) : response && parsedResponse ? (
-                  <div className="space-y-5">
-                    {parsedResponse.intro && <p className="text-base">{parsedResponse.intro}</p>}
-                    {parsedResponse.tasks.map((t, i) => (
-                      <div key={i} className="border-l-4 border-green-500 pl-4">
-                        <h3 className="text-lg font-semibold text-green-800">{t.title}</h3>
-                        {t.why && <p className="mt-1"><strong>Why:</strong> {t.why}</p>}
-                        {t.build && (
-                          <p className="whitespace-pre-line mt-2"><strong>Build:</strong> {t.build}</p>
-                        )}
-                        {t.resources && (
-                          <p className="text-sm text-green-700 mt-2">
-                            <strong>Resources:</strong><br />{t.resources}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                    {parsedResponse.proTip && (
-                      <p className="italic text-gray-600">💡 {parsedResponse.proTip}</p>
-                    )}
-                  </div>
+                  parsedResponse.tasks.length > 0 ? (
+                    <div className="space-y-5">
+                      {parsedResponse.intro && (
+                        <p className="text-base">{parsedResponse.intro}</p>
+                      )}
+
+                      {parsedResponse.tasks.map((t, i) => (
+                        <div key={i} className="border-l-4 border-green-500 pl-4">
+                          <h3 className="text-lg font-semibold text-green-800">{t.title}</h3>
+
+                          {t.description && (
+                            <p className="mt-2 whitespace-pre-line">
+                              <strong>Description:</strong> {t.description}
+                            </p>
+                          )}
+
+                          {t.tips && t.tips.length > 0 && (
+                            <div className="mt-2">
+                              <strong>Small Tips:</strong>
+                              <ul className="list-disc ml-6 mt-1 space-y-1">
+                                {t.tips.map((tip, j) => (
+                                  <li key={j}>{tip}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Legacy sections (still supported) */}
+                          {t.why && <p className="mt-2"><strong>Why:</strong> {t.why}</p>}
+                          {t.build && (
+                            <p className="mt-2 whitespace-pre-line"><strong>Build:</strong> {t.build}</p>
+                          )}
+                          {t.resources && (
+                            <p className="text-sm text-green-700 mt-2">
+                              <strong>Resources:</strong><br />{t.resources}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+
+                      {parsedResponse.proTip && (
+                        <p className="italic text-gray-600">💡 {parsedResponse.proTip}</p>
+                      )}
+                    </div>
+                  ) : (
+                    // Fallback: show raw text when no tasks detected
+                    <pre className="whitespace-pre-wrap text-sm text-green-900">
+                      {response}
+                    </pre>
+                  )
                 ) : (
                   <p className="text-green-700 text-base italic">
                     Your personalized guide will appear here!
