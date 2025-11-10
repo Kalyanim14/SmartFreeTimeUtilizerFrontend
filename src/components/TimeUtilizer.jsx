@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
+import History from "./History";
 
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
@@ -18,91 +19,65 @@ const TimeUtilizer = () => {
     context: "",
   });
 
-  // --- UPDATED PARSER: supports **1. Title**:, ### headings, and legacy "1. Task:" ---
+  // --- UPDATED PARSER: supports Title / Description / Small Tips (+ legacy Why/Build/Resources) ---
   function parseTasks(text) {
     if (!text || typeof text !== "string") return { intro: "", tasks: [], proTip: "" };
 
-    const s = text.replace(/\r\n/g, "\n").trim();
+    const s = text.replace(/\r\n/g, "\n");
 
-    // Optional "Pro Tip" capture (anywhere, last wins)
+    // capture optional trailing Pro Tip
     const proTipMatch = s.match(/^\s*Pro Tip:\s*([\s\S]*)$/im);
     const proTip = proTipMatch ? proTipMatch[1].trim() : "";
-
-    // Work on a core string with Pro Tip removed (if present)
-    const core = proTipMatch ? s.replace(proTipMatch[0], "").trim() : s;
+    const core = proTipMatch ? s.replace(proTipMatch[0], "").trim() : s.trim();
     if (!core) return { intro: "", tasks: [], proTip };
 
-    // Try in order: ### headings -> **1. Title**: blocks -> legacy 1. Task:
-    const blocks = [];
-
-    // 1) ### Headings
+    // split by markdown headings "### ..."
     const headingRegex = /^###\s*[^\n]+$/gm;
     const headings = [...core.matchAll(headingRegex)];
-    if (headings.length > 0) {
+    const blocks = [];
+
+    if (headings.length === 0) {
+      blocks.push({ heading: "", body: core });
+    } else {
       for (let i = 0; i < headings.length; i++) {
         const h = headings[i];
         const start = h.index;
         const end = i + 1 < headings.length ? headings[i + 1].index : core.length;
         const headingLine = h[0].replace(/^###\s*/, "").trim();
-        const body = core.slice(start + h[0].length, end).trim();
+        const body = core
+          .slice(start + h[0].length, end)
+          .trim();
         blocks.push({ heading: headingLine, body });
-      }
-    } else {
-      // 2) **1. Title**: <title>
-      const numberedTitleRegex = /^\s*\*{0,2}\d+\.\s*Title\*{0,2}\s*:\s*(.+)$/gmi;
-      const titleMatches = [...core.matchAll(numberedTitleRegex)];
-      if (titleMatches.length > 0) {
-        for (let i = 0; i < titleMatches.length; i++) {
-          const m = titleMatches[i];
-          const start = m.index;
-          const end = i + 1 < titleMatches.length ? titleMatches[i + 1].index : core.length;
-          const titleText = m[1].trim();
-          const body = core.slice(m.index + m[0].length, end).trim();
-          blocks.push({ heading: titleText, body });
-        }
-      } else {
-        // 3) Legacy "1. Task: Title"
-        const legacyTaskRegex = /^\s*(\d+)\.\s*Task:\s*(.+)$/gmi;
-        const legacyMatches = [...core.matchAll(legacyTaskRegex)];
-        if (legacyMatches.length > 0) {
-          for (let i = 0; i < legacyMatches.length; i++) {
-            const m = legacyMatches[i];
-            const start = m.index;
-            const end = i + 1 < legacyMatches.length ? legacyMatches[i + 1].index : core.length;
-            const titleText = m[2].trim();
-            const body = core.slice(m.index + m[0].length, end).trim();
-            blocks.push({ heading: titleText, body });
-          }
-        } else {
-          // No structure detected: show whole body as one block (renderer will raw-fallback)
-          blocks.push({ heading: "", body: core });
-        }
       }
     }
 
-    // If first block looks like an intro (no heading), treat as intro
+    // treat non-task first block as intro
     let intro = "";
-    if (blocks.length > 0 && !blocks[0].heading) {
+    if (blocks.length > 0 && blocks[0].heading === "") {
       intro = blocks[0].body;
       blocks.shift();
     }
 
     const tasks = blocks.map(({ heading, body }) => {
-      const headingTitle = heading.replace(/^\*+|\*+$/g, "").trim();
+      const titleFromHeading = heading.replace(/^\*+|\*+$/g, "").trim();
 
-      // Explicit Title in body wins
-      const explicitTitle =
+      // Title (explicit or from heading)
+      const titleMatch =
         body.match(/\*\*Title\*\*\s*:?\s*([^\n]+)\n?/i) ||
         body.match(/^\s*Title\s*:?\s*([^\n]+)\n?/im);
-      const title = (explicitTitle ? explicitTitle[1] : headingTitle || "Task").trim();
+      const title = (titleMatch ? titleMatch[1] : titleFromHeading || "Task").trim();
 
-      // Description
+      // Description (stop at next section)
       const descMatch =
-        body.match(/\*\*Description\*\*\s*:?\s*([\s\S]*?)(?=\n\*\*(?:Small Tips|Resources|Why|Build)\*\*|$)/i) ||
-        body.match(/(?:^|\n)Description\s*:?\s*([\s\S]*?)(?=\n(?:Small Tips|Resources|Why|Build)\s*:|$)/i);
+        body.match(
+          /\*\*Description\*\*\s*:?\s*([\s\S]*?)(?=\n\*\*(?:Small Tips|Why|Build|Resources)\*\*|$)/i
+        ) ||
+        body.match(
+          /(?:^|\n)Description\s*:?\s*([\s\S]*?)(?=\n(?:Small Tips|Why|Build|Resources)\s*:|$)/i
+        );
       const description = descMatch ? descMatch[1].trim() : "";
 
-      // Small Tips (bullets)
+      // Small Tips bullets
       const tipsMatch =
         body.match(/\*\*Small Tips\*\*\s*:?\s*([\s\S]*)/i) ||
         body.match(/(?:^|\n)Small Tips\s*:?\s*([\s\S]*)/i);
@@ -115,27 +90,22 @@ const TimeUtilizer = () => {
           .map((l) => l.replace(/^[-*•]\s+/, ""));
       }
 
-      // Resources (optional)
-      const resourcesMatch =
-        body.match(/\*\*Resources\*\*\s*:?\s*([\s\S]*)/i) ||
-        body.match(/(?:^|\n)Resources\s*:?\s*([\s\S]*)/i);
-      const resources = resourcesMatch ? resourcesMatch[1].trim() : "";
-
-      // Legacy support: Why / Build
-      const whyMatch =
-        body.match(/(?:\*\*Why\*\*:?|\bWhy:)\s*([\s\S]*?)(?=\n\*\*(?:Build|Resources|Small Tips)\*\*|$)/i) ||
-        body.match(/(?:^|\n)Why\s*:?\s*([\s\S]*?)(?=\n(?:Build|Resources|Small Tips)\s*:|$)/i);
-      const buildMatch =
-        body.match(/(?:\*\*Build\*\*:?|\bBuild:)\s*([\s\S]*?)(?=\n\*\*(?:Resources|Small Tips)\*\*|$)/i) ||
-        body.match(/(?:^|\n)Build\s*:?\s*([\s\S]*?)(?=\n(?:Resources|Small Tips)\s*:|$)/i);
+      // Legacy sections (back-compat)
+      const whyMatch = body.match(
+        /(?:\*\*Why\*\*:?|\bWhy:)\s*([\s\S]*?)(?=(?:\n(?:\*\*Build|\bBuild:|\*\*Resources|\bResources:|\*\*Small Tips|\bSmall Tips:))|$)/i
+      );
+      const buildMatch = body.match(
+        /(?:\*\*Build\*\*:?|\bBuild:)\s*([\s\S]*?)(?=(?:\n(?:\*\*Resources|\bResources:|\*\*Small Tips|\bSmall Tips:))|$)/i
+      );
+      const resourcesMatch = body.match(/(?:\*\*Resources\*\*:?|\bResources:)\s*([\s\S]*)/i);
 
       return {
         title,
         description,
         tips,
-        resources,
         why: whyMatch ? whyMatch[1].trim() : "",
         build: buildMatch ? buildMatch[1].trim() : "",
+        resources: resourcesMatch ? resourcesMatch[1].trim() : "",
       };
     });
 
@@ -178,7 +148,8 @@ const TimeUtilizer = () => {
     time_available: ["15 minutes", "30 minutes", "1 hour", "2+ hours", "Other"],
   };
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleDropdownChange = (e) => {
     const { name, value } = e.target;
@@ -212,8 +183,6 @@ const TimeUtilizer = () => {
       const payload = { ...finalData, username };
       const res = await axios.post(`${API_BASE_URL}/api/process-data`, payload);
       setResponse(res.data.response || "No response returned.");
-      // console.log("LLM RAW >>>", res.data.response); // uncomment for debugging
-
       // Auto-scroll to output
       setTimeout(() => {
         document.getElementById("output-box")?.scrollIntoView({ behavior: "smooth" });
@@ -229,9 +198,10 @@ const TimeUtilizer = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleLogout = () => {
+    localStorage.removeItem("username");
+    localStorage.removeItem("name");
     setIsLoggedIn(false);
-    localStorage.removeItem("isLoggedIn");
-    window.location.href = "/"; // redirect to sign-in
+    navigate("/signin");
   };
 
   const clearResponse = () => setResponse("");
@@ -301,7 +271,7 @@ const TimeUtilizer = () => {
         </div>
       </header>
 
-      {/* Main content (stacked, output below form) */}
+      {/* Main content */}
       <main className="max-w-3xl mx-auto px-6 py-10 flex flex-col gap-10">
         {/* Form */}
         <section className="bg-white rounded-2xl shadow-md p-8">
@@ -403,7 +373,7 @@ const TimeUtilizer = () => {
           </form>
         </section>
 
-        {/* Output below the form */}
+        {/* Output */}
         <section className="flex flex-col gap-4">
           <div className="bg-white rounded-2xl shadow-md p-8 flex flex-col">
             <div className="flex items-center justify-between">
@@ -434,56 +404,48 @@ const TimeUtilizer = () => {
                     ⏳ Generating your personalized suggestions...
                   </p>
                 ) : response && parsedResponse ? (
-                  parsedResponse.tasks.length > 0 ? (
-                    <div className="space-y-5">
-                      {parsedResponse.intro && (
-                        <p className="text-base">{parsedResponse.intro}</p>
-                      )}
+                  <div className="space-y-5">
+                    {parsedResponse.intro && <p className="text-base">{parsedResponse.intro}</p>}
 
-                      {parsedResponse.tasks.map((t, i) => (
-                        <div key={i} className="border-l-4 border-green-500 pl-4">
-                          <h3 className="text-lg font-semibold text-green-800">{t.title}</h3>
+                    {parsedResponse.tasks.map((t, i) => (
+                      <div key={i} className="border-l-4 border-green-500 pl-4">
+                        <h3 className="text-lg font-semibold text-green-800">{t.title}</h3>
 
-                          {t.description && (
-                            <p className="mt-2 whitespace-pre-line">
-                              <strong>Description:</strong> {t.description}
-                            </p>
-                          )}
+                        {/* NEW: Description & Small Tips */}
+                        {t.description && (
+                          <p className="mt-2 whitespace-pre-line">
+                            <strong>Description:</strong> {t.description}
+                          </p>
+                        )}
 
-                          {t.tips && t.tips.length > 0 && (
-                            <div className="mt-2">
-                              <strong>Small Tips:</strong>
-                              <ul className="list-disc ml-6 mt-1 space-y-1">
-                                {t.tips.map((tip, j) => (
-                                  <li key={j}>{tip}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
+                        {t.tips && t.tips.length > 0 && (
+                          <div className="mt-2">
+                            <strong>Small Tips:</strong>
+                            <ul className="list-disc ml-6 mt-1 space-y-1">
+                              {t.tips.map((tip, j) => (
+                                <li key={j}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
-                          {/* Legacy sections (still supported) */}
-                          {t.why && <p className="mt-2"><strong>Why:</strong> {t.why}</p>}
-                          {t.build && (
-                            <p className="mt-2 whitespace-pre-line"><strong>Build:</strong> {t.build}</p>
-                          )}
-                          {t.resources && (
-                            <p className="text-sm text-green-700 mt-2">
-                              <strong>Resources:</strong><br />{t.resources}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                        {/* Legacy sections (still supported) */}
+                        {t.why && <p className="mt-2"><strong>Why:</strong> {t.why}</p>}
+                        {t.build && (
+                          <p className="mt-2 whitespace-pre-line"><strong>Build:</strong> {t.build}</p>
+                        )}
+                        {t.resources && (
+                          <p className="text-sm text-green-700 mt-2">
+                            <strong>Resources:</strong><br />{t.resources}
+                          </p>
+                        )}
+                      </div>
+                    ))}
 
-                      {parsedResponse.proTip && (
-                        <p className="italic text-gray-600">💡 {parsedResponse.proTip}</p>
-                      )}
-                    </div>
-                  ) : (
-                    // Fallback: show raw text when no tasks detected
-                    <pre className="whitespace-pre-wrap text-sm text-green-900">
-                      {response}
-                    </pre>
-                  )
+                    {parsedResponse.proTip && (
+                      <p className="italic text-gray-600">💡 {parsedResponse.proTip}</p>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-green-700 text-base italic">
                     Your personalized guide will appear here!
