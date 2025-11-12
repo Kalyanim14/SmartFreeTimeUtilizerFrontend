@@ -159,15 +159,6 @@ const History = () => {
                 </p>
               </div>
 
-              <div className="mt-4 flex items-center justify-between">
-                <button
-                  onClick={() => toggleExpand(idx)}
-                  className="text-sm font-medium text-green-700 hover:underline"
-                >
-                  {expanded[idx] ? "Show less" : "Show more"}
-                </button>
-                <span className="text-xs text-gray-400">{/* reserve for future actions */}</span>
-              </div>
             </article>
           ))}
         </div>

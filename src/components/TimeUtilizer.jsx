@@ -21,96 +21,103 @@ const TimeUtilizer = () => {
 
   // --- UPDATED PARSER: supports Title / Description / Small Tips (+ legacy Why/Build/Resources) ---
   function parseTasks(text) {
-    if (!text || typeof text !== "string") return { intro: "", tasks: [], proTip: "" };
+  if (!text || typeof text !== "string") return { intro: "", tasks: [], proTip: "" };
 
-    const s = text.replace(/\r\n/g, "\n");
+  // normalize
+  const normalized = text.replace(/\r\n/g, "\n").trim();
 
-    // capture optional trailing Pro Tip
-    const proTipMatch = s.match(/^\s*Pro Tip:\s*([\s\S]*)$/im);
-    const proTip = proTipMatch ? proTipMatch[1].trim() : "";
-    const core = proTipMatch ? s.replace(proTipMatch[0], "").trim() : s.trim();
-    if (!core) return { intro: "", tasks: [], proTip };
+  // capture optional trailing Pro Tip
+  let proTip = "";
+  const proTipMatch = normalized.match(/Pro Tip:\s*([\s\S]*)$/i);
+  let core = normalized;
+  if (proTipMatch) {
+    proTip = proTipMatch[1].trim();
+    core = normalized.replace(proTipMatch[0], "").trim();
+  }
+  if (!core) return { intro: "", tasks: [], proTip };
 
-    // split by markdown headings "### ..."
-    const headingRegex = /^###\s*[^\n]+$/gm;
-    const headings = [...core.matchAll(headingRegex)];
-    const blocks = [];
+  // split into blocks using --- separators (common in your example)
+  const rawBlocks = core.split(/\n-{3,}\n/).map((b) => b.trim()).filter(Boolean);
 
-    if (headings.length === 0) {
-      blocks.push({ heading: "", body: core });
-    } else {
-      for (let i = 0; i < headings.length; i++) {
-        const h = headings[i];
-        const start = h.index;
-        const end = i + 1 < headings.length ? headings[i + 1].index : core.length;
-        const headingLine = h[0].replace(/^###\s*/, "").trim();
-        const body = core
-          .slice(start + h[0].length, end)
-          .trim();
-        blocks.push({ heading: headingLine, body });
-      }
+  // helper to detect heading line (Micro-Task X, ### Heading, or first-line title)
+  function detectHeading(block) {
+    const lines = block.split("\n").map((l) => l.trim());
+    // Micro-Task like "Micro-Task 2" or "Micro Task 2"
+    const microMatch = lines[0].match(/^(Micro[- ]?Task\b.*)$/i);
+    if (microMatch) return { heading: microMatch[1], body: lines.slice(1).join("\n").trim() };
+    // Markdown heading "### Title"
+    const mdMatch = lines[0].match(/^###\s*(.+)$/);
+    if (mdMatch) return { heading: mdMatch[1].trim(), body: lines.slice(1).join("\n").trim() };
+    // if first line looks like a short title (no colon and short), treat it as heading
+    if (lines.length > 1 && lines[0].length <= 60 && !lines[0].includes(":")) {
+      return { heading: lines[0], body: lines.slice(1).join("\n").trim() };
     }
+    // otherwise no explicit heading
+    return { heading: "", body: block };
+  }
 
-    // treat non-task first block as intro
-    let intro = "";
-    if (blocks.length > 0 && blocks[0].heading === "") {
-      intro = blocks[0].body;
-      blocks.shift();
+  // if the first block is not a task (no heading and contains multiple paragraphs), treat as intro
+  let intro = "";
+  const blocks = [];
+  if (rawBlocks.length && detectHeading(rawBlocks[0]).heading === "" && rawBlocks[0].split("\n").length > 3) {
+    intro = rawBlocks[0];
+    rawBlocks.slice(1).forEach((b) => blocks.push(detectHeading(b)));
+  } else {
+    rawBlocks.forEach((b) => blocks.push(detectHeading(b)));
+  }
+
+  // parse each block into task object
+  const tasks = blocks.map(({ heading, body }) => {
+    const titleFromHeading = heading || "";
+
+    // Title (explicit or from heading)
+    const titleMatch = body.match(/^\s*Title\s*:?\s*(.+)$/im);
+    const title = (titleMatch ? titleMatch[1].trim() : titleFromHeading || "Task").trim();
+
+    // Description (stop at next known section)
+    const descMatch = body.match(/Description\s*:?\s*([\s\S]*?)(?=\n(?:Small Tips|Why|Build|Resources)\b|$)/i);
+    const description = descMatch ? descMatch[1].trim() : "";
+
+    // Small Tips (may appear multiple times) — collect all appearances and dedupe preserving order
+    const tipsAll = [];
+    const smallTipsRegex = /Small Tips\s*:?\s*([\s\S]*?)(?=\n(?:Why|Build|Resources|$))/ig;
+    let m;
+    while ((m = smallTipsRegex.exec(body)) !== null) {
+      const blockLines = m[1]
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+        .map((l) => l.replace(/^[-*•\s]+/, ""));
+      blockLines.forEach((ln) => tipsAll.push(ln));
     }
-
-    const tasks = blocks.map(({ heading, body }) => {
-      const titleFromHeading = heading.replace(/^\*+|\*+$/g, "").trim();
-
-      // Title (explicit or from heading)
-      const titleMatch =
-        body.match(/\*\*Title\*\*\s*:?\s*([^\n]+)\n?/i) ||
-        body.match(/^\s*Title\s*:?\s*([^\n]+)\n?/im);
-      const title = (titleMatch ? titleMatch[1] : titleFromHeading || "Task").trim();
-
-      // Description (stop at next section)
-      const descMatch =
-        body.match(
-          /\*\*Description\*\*\s*:?\s*([\s\S]*?)(?=\n\*\*(?:Small Tips|Why|Build|Resources)\*\*|$)/i
-        ) ||
-        body.match(
-          /(?:^|\n)Description\s*:?\s*([\s\S]*?)(?=\n(?:Small Tips|Why|Build|Resources)\s*:|$)/i
-        );
-      const description = descMatch ? descMatch[1].trim() : "";
-
-      // Small Tips bullets
-      const tipsMatch =
-        body.match(/\*\*Small Tips\*\*\s*:?\s*([\s\S]*)/i) ||
-        body.match(/(?:^|\n)Small Tips\s*:?\s*([\s\S]*)/i);
-      let tips = [];
-      if (tipsMatch) {
-        tips = tipsMatch[1]
-          .split("\n")
-          .map((l) => l.trim())
-          .filter((l) => /^[-*•]\s+/.test(l))
-          .map((l) => l.replace(/^[-*•]\s+/, ""));
-      }
-
-      // Legacy sections (back-compat)
-      const whyMatch = body.match(
-        /(?:\*\*Why\*\*:?|\bWhy:)\s*([\s\S]*?)(?=(?:\n(?:\*\*Build|\bBuild:|\*\*Resources|\bResources:|\*\*Small Tips|\bSmall Tips:))|$)/i
-      );
-      const buildMatch = body.match(
-        /(?:\*\*Build\*\*:?|\bBuild:)\s*([\s\S]*?)(?=(?:\n(?:\*\*Resources|\bResources:|\*\*Small Tips|\bSmall Tips:))|$)/i
-      );
-      const resourcesMatch = body.match(/(?:\*\*Resources\*\*:?|\bResources:)\s*([\s\S]*)/i);
-
-      return {
-        title,
-        description,
-        tips,
-        why: whyMatch ? whyMatch[1].trim() : "",
-        build: buildMatch ? buildMatch[1].trim() : "",
-        resources: resourcesMatch ? resourcesMatch[1].trim() : "",
-      };
+    // dedupe while preserving order
+    const seen = new Set();
+    const tips = tipsAll.filter((t) => {
+      if (!t) return false;
+      const key = t.replace(/\s+/g, " ").trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
 
-    return { intro, tasks, proTip };
-  }
+    // Legacy sections (back-compat)
+    const whyMatch = body.match(/Why\s*:?\s*([\s\S]*?)(?=\n(?:Build|Resources|Small Tips)\b|$)/i);
+    const buildMatch = body.match(/Build\s*:?\s*([\s\S]*?)(?=\n(?:Resources|Small Tips)\b|$)/i);
+    const resourcesMatch = body.match(/Resources\s*:?\s*([\s\S]*)/i);
+
+    return {
+      title,
+      description,
+      tips,
+      why: whyMatch ? whyMatch[1].trim() : "",
+      build: buildMatch ? buildMatch[1].trim() : "",
+      resources: resourcesMatch ? resourcesMatch[1].trim() : "",
+    };
+  });
+
+  return { intro, tasks, proTip };
+}
+
 
   const [customInputs, setCustomInputs] = useState({
     domain: "",
@@ -189,7 +196,7 @@ const TimeUtilizer = () => {
       }, 50);
     } catch (err) {
       console.error(err);
-      setResponse("⚠️ Something went wrong. Please try again.");
+      setResponse("⚠ Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
