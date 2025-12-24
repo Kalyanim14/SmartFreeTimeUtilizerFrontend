@@ -294,7 +294,7 @@ const TimeUtilizer = () => {
             {/* Name & Age */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-green-800 font-medium text-sm">Name</label>
+                <label className="text-green-800 font-medium text-sm">Name*</label>
                 <input
                   name="name"
                   value={formData.name}
@@ -304,7 +304,7 @@ const TimeUtilizer = () => {
                 />
               </div>
               <div>
-                <label className="text-green-800 font-medium text-sm">Age</label>
+                <label className="text-green-800 font-medium text-sm">Age*</label>
                 <input
                   name="age"
                   type="number"
@@ -322,7 +322,7 @@ const TimeUtilizer = () => {
                 <div key={key}>
                   <label className="text-green-800 font-medium text-sm capitalize">
                     {key.replace("_", " ")}
-                  </label>
+                  </label>*
                   <select
                     name={key}
                     value={formData[key]}
