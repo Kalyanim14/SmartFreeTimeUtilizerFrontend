@@ -227,7 +227,7 @@ const TimeUtilizer = () => {
   const parsedResponse = response ? parseTasks(response) : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-white font-poppins text-[1rem] leading-relaxed">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 via-green-450 to-green-700 font-poppins text-[1rem] leading-relaxed">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-green-100">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
