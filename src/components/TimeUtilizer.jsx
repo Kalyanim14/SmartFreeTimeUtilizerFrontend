@@ -8,7 +8,7 @@ const API_BASE_URL =
     ? "https://flask-smartfreetimeutilizer-j9rh.onrender.com"
     : "http://localhost:5000";
 
-const TimeUtilizer = () => {
+const TimeUtilizer = ({ setIsLoggedIn }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
@@ -202,7 +202,7 @@ const TimeUtilizer = () => {
     }
   };
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  //const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("username");
@@ -227,7 +227,7 @@ const TimeUtilizer = () => {
   const parsedResponse = response ? parseTasks(response) : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-white font-poppins text-[1rem] leading-relaxed">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 via-green-450 to-green-700 font-poppins text-[1rem] leading-relaxed">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-green-100">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
@@ -279,7 +279,7 @@ const TimeUtilizer = () => {
       </header>
 
       {/* Main content */}
-      <main className="max-w-3xl mx-auto px-6 py-10 flex flex-col gap-10">
+      <main className="max-w-4xl mx-auto px-6 py-10 flex flex-col gap-10">
         {/* Form */}
         <section className="bg-white rounded-2xl shadow-md p-8">
           <h2 className="text-2xl font-semibold text-green-800 mb-3">
