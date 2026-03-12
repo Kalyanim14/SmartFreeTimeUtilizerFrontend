@@ -3,7 +3,7 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
 const API_BASE_URL =
-  process.env.NODE_ENV === "production"
+  import.meta.env.MODE === "production"
     ? "https://flask-smartfreetimeutilizer-j9rh.onrender.com"
     : "http://localhost:5000";
 
@@ -12,21 +12,24 @@ const History = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [selectedChat, setSelectedChat] = useState(null);
+
   const navigate = useNavigate();
 
   const fetchHistory = async () => {
     setLoading(true);
     setError("");
+
     try {
       const username = localStorage.getItem("username");
+
       if (!username) {
         setError("No user found. Please sign in.");
-        setHistory([]);
         return;
       }
 
       const res = await axios.get(
-        `${API_BASE_URL}/history/${encodeURIComponent(username)}`
+        `${API_BASE_URL}/api/history/${encodeURIComponent(username)}`
       );
 
       setHistory(res.data.history || []);
@@ -42,28 +45,31 @@ const History = () => {
     fetchHistory();
   }, []);
 
-  // ========== GROUP BY TIMESTAMP ==========
+  // Extract titles from AI response
   const groupedHistory = useMemo(() => {
-    const map = {};
+    return history.map((item) => {
+      const titles = [];
 
-    history.forEach((item) => {
-      if (!map[item.timestamp]) {
-        map[item.timestamp] = [];
+      const matches = item.ai_response?.match(/### Task \d+ – (.*)/g);
+
+      if (matches) {
+        matches.forEach((m) => {
+          titles.push(m.replace(/### Task \d+ – /, ""));
+        });
       }
-      map[item.timestamp].push(item.title);
-    });
 
-    return Object.entries(map)
-      .map(([timestamp, titles]) => ({
-        timestamp: Number(timestamp),
+      return {
         titles,
-      }))
-      .sort((a, b) => b.timestamp - a.timestamp);
+        ai_response: item.ai_response,
+        created_at: item.created_at,
+      };
+    });
   }, [history]);
 
-  // ========== SEARCH ==========
+  // Search filter
   const filtered = useMemo(() => {
     if (!query.trim()) return groupedHistory;
+
     const q = query.toLowerCase();
 
     return groupedHistory.filter((group) =>
@@ -71,79 +77,74 @@ const History = () => {
     );
   }, [groupedHistory, query]);
 
-  const readableDate = (ts) => {
-    if (!ts) return "";
-    try {
-      return new Date(ts * 1000).toLocaleString();
-    } catch {
-      return "";
-    }
+  const readableDate = (date) => {
+    if (!date) return "";
+    return new Date(date).toLocaleString();
   };
 
   return (
     <div className="min-h-screen bg-green-50 text-green-900 p-6 md:p-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/timeutilizer")}
-            className="inline-flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow hover:shadow-md transition"
+            className="bg-white px-3 py-2 rounded-xl shadow hover:shadow-md transition"
           >
             ← Back
           </button>
-          <h1 className="text-2xl md:text-3xl font-bold">Your History</h1>
+
+          <h1 className="text-3xl font-bold">Your History</h1>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search titles..."
-            className="flex-1 md:flex-none w-full md:w-72 px-3 py-2 rounded-xl border border-green-200 focus:outline-none focus:ring-2 focus:ring-green-300"
-          />
-          <button
-            onClick={fetchHistory}
-            className="bg-white px-3 py-2 rounded-xl shadow hover:shadow-md transition"
-          >
-            ⟳ Refresh
-          </button>
-        </div>
+        <input
+          type="search"
+          placeholder="Search titles..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full md:w-72 px-3 py-2 rounded-xl border border-green-200 focus:ring-2 focus:ring-green-300"
+        />
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <p className="text-green-700">Loading your history...</p>
+      {/* Loading */}
+      {loading && (
+        <div className="flex justify-center py-20">
+          <p>Loading history...</p>
         </div>
-      ) : error ? (
-        <div className="bg-white p-6 rounded-xl shadow-md">
-          <p className="text-red-600">{error}</p>
+      )}
+
+      {/* Error */}
+      {!loading && error && (
+        <div className="bg-white p-6 rounded-xl shadow-md text-red-600">
+          {error}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24">
-          <div className="bg-white p-8 rounded-2xl shadow-md text-center max-w-md">
-            <h3 className="text-lg font-semibold mb-2">No history yet</h3>
-            <p className="text-sm text-gray-600">
-              Generate a plan in TimeUtilizer — it will appear here.
-            </p>
-            <Link
-              to="/timeutilizer"
-              className="inline-block mt-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700"
-            >
-              Go to TimeUtilizer
-            </Link>
-          </div>
+      )}
+
+      {/* Empty */}
+      {!loading && !error && filtered.length === 0 && (
+        <div className="text-center py-20">
+          <p>No history yet</p>
+
+          <Link
+            to="/timeutilizer"
+            className="mt-4 inline-block bg-green-600 text-white px-4 py-2 rounded-lg"
+          >
+            Generate Plan
+          </Link>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      )}
+
+      {/* History Cards */}
+      {!loading && !error && filtered.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((group, idx) => (
             <article
               key={idx}
-              className="bg-white p-5 rounded-2xl shadow-md border border-green-100"
+              onClick={() => setSelectedChat(group)}
+              className="bg-white p-5 rounded-2xl shadow-md border border-green-100 cursor-pointer hover:shadow-lg transition"
             >
               <p className="text-xs text-gray-400 mb-3">
-                {readableDate(group.timestamp)}
+                {readableDate(group.created_at)}
               </p>
 
               <ul className="space-y-2">
@@ -152,24 +153,45 @@ const History = () => {
                     key={i}
                     className="text-sm text-green-800 font-medium flex gap-2"
                   >
-                    <span className="text-green-500">•</span>
+                    <span className="text-green-500">{i + 1}.</span>
                     <span>{title}</span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-4 text-right">
-                <button
-                  onClick={() =>
-                    navigator.clipboard?.writeText(group.titles.join("\n"))
-                  }
-                  className="text-xs text-green-600 hover:text-green-800"
-                >
-                  Copy all
-                </button>
-              </div>
+              <p className="mt-4 text-xs text-green-600">Click to view plan</p>
             </article>
           ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {selectedChat && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+          <div className="bg-white max-w-2xl w-full rounded-2xl p-6 shadow-xl relative max-h-[80vh] overflow-y-auto">
+
+            <button
+              onClick={() => setSelectedChat(null)}
+              className="absolute top-3 right-4 text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-lg font-semibold mb-3">
+              Learning Plan
+            </h2>
+
+            <p className="text-xs text-gray-400 mb-4">
+              {readableDate(selectedChat.created_at)}
+            </p>
+
+            <div className="text-sm text-green-800 whitespace-pre-line">
+              {selectedChat.ai_response}
+            </div>
+
+          </div>
+
         </div>
       )}
     </div>
