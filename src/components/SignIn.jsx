@@ -10,7 +10,8 @@ function SignIn({ onSwitch, setIsLoggedIn }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://127.0.0.1:5000/signin", {
+      const API_URL = import.meta.env.REACT_API_URL; 
+      const res = await axios.post(`${API_URL}/signup`, {, {
         username: form.username,
         password: form.password,
       });
