@@ -22,7 +22,7 @@ function SignUp({ onSwitch, setIsLoggedIn }) {
       import.meta.env.MODE === "production"
     ? "https://flask-smartfreetimeutilizer.onrender.com/"
     : "http://localhost:5000";
-      const res = await axios.post(`${API_URL}/signup`, { {
+      const res = await axios.post(`${API_URL}/signup`, { 
         name: form.name.trim(),
         username: form.username.trim(),
         password: form.password,
