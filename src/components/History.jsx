@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 const API_BASE_URL =
   import.meta.env.MODE === "production"
-    ? "https://flask-smartfreetimeutilizer-j9rh.onrender.com"
+    ? "https://flask-smartfreetimeutilizer.onrender.com/"
     : "http://localhost:5000";
 
 const History = () => {
