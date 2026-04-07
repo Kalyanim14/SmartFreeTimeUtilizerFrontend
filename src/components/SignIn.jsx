@@ -10,15 +10,15 @@ function SignIn({ onSwitch, setIsLoggedIn }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const API_URL = import.meta.env.REACT_API_URL; 
-      const res = await axios.post(`${API_URL}/signup`, { {
+      const API_URL = import.meta.env.VITE_API_URL;
+      const res = await axios.post(`${API_URL}/signin`, {
         username: form.username,
         password: form.password,
       });
 
       setMessage(res.data.message || "");
 
-      if (res.status === 200 || res.data.message === "Login successful!") {
+      if (res.status === 200 ) {
         localStorage.setItem("username", form.username);
         if (res.data.name) localStorage.setItem("name", res.data.name);
         setIsLoggedIn(true);
