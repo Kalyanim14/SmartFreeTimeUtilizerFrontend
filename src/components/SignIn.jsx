@@ -10,7 +10,10 @@ function SignIn({ onSwitch, setIsLoggedIn }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const API_URL = "https://flask-smartfreetimeutilizer.onrender.com";
+      const API_URL =
+        import.meta.env.MODE === "production"
+    ? "https://flask-smartfreetimeutilizer.onrender.com/"
+    : "http://localhost:5000";
       const res = await axios.post(`${API_URL}/signin`, {
         username: form.username,
         password: form.password,
