@@ -11,7 +11,7 @@ function SignIn({ onSwitch, setIsLoggedIn }) {
     e.preventDefault();
     try {
       const API_URL = import.meta.env.REACT_API_URL; 
-      const res = await axios.post(`${API_URL}/signup`, {, {
+      const res = await axios.post(`${API_URL}/signup`, { {
         username: form.username,
         password: form.password,
       });
