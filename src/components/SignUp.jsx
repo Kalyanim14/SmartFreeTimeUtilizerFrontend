@@ -18,7 +18,10 @@ function SignUp({ onSwitch, setIsLoggedIn }) {
 
     setLoading(true);
     try {
-      const API_URL = "https://flask-smartfreetimeutilizer.onrender.com/";
+      const API_URL =
+      import.meta.env.MODE === "production"
+    ? "https://flask-smartfreetimeutilizer.onrender.com/"
+    : "http://localhost:5000";
       const res = await axios.post(`${API_URL}/signup`, { {
         name: form.name.trim(),
         username: form.username.trim(),
