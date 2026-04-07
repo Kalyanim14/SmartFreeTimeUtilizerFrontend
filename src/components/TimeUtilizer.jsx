@@ -5,7 +5,7 @@ import History from "./History";
 
 const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://flask-smartfreetimeutilizer.onrender.com"
+    ? "https://flask-smartfreetimeutilizer.onrender.com/"
     : "http://localhost:5000";
 
 const TimeUtilizer = ({ setIsLoggedIn }) => {
