@@ -1,20 +1,107 @@
-## Backend repository
+# Smart Free Time Utilizer - Frontend
 
-### https://github.com/Kalyanim14/Flask_SmartFreeTimeUtilizer.git 
+An AI-powered productivity platform that helps users make better use of their available time by generating personalized micro-learning and activity recommendations based on interests, available duration, and past activity history.
 
-# React + Vite
+## Features
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+* User Registration and Authentication
+* Personalized Activity Recommendations
+* AI-Powered Task Generation
+* Activity History Tracking
+* Responsive User Interface
+* Real-Time Recommendation Display
+* REST API Integration with Flask Backend
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Frontend
 
-## React Compiler
+* React
+* React Router
+* Axios
+* HTML5
+* CSS3
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend
 
-## Expanding the ESLint configuration
+* Flask
+* MySQL
+* OpenRouter LLM APIs
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## How It Works
+
+1. Users create an account and log in.
+2. Users provide available time and interests.
+3. The application sends contextual information to the backend.
+4. AI generates personalized micro-learning activities and productive tasks.
+5. User activity history is stored to reduce repetitive recommendations.
+
+## Screenshots
+
+### Login Page
+
+![Login](screenshots/login.png)
+
+### Recommendation Dashboard
+
+![Dashboard](screenshots/dashboard.png)
+
+### Generated Activities
+
+![Activities](screenshots/activities.png)
+
+### Activity History
+
+![History](screenshots/history.png)
+
+> Add screenshots inside the `screenshots` folder to display them automatically in GitHub.
+
+## Project Structure
+
+```text
+src/
+├── components/
+├── pages/
+├── services/
+├── assets/
+└── App.jsx
+```
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone <repository-url>
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Application runs at:
+
+```text
+http://localhost:5173
+```
+
+## Backend Repository
+
+Backend:
+https://github.com/Kalyanim14/Flask_SmartFreeTimeUtilizer
+
+## Future Enhancements
+
+* Weekly Productivity Reports
+* User Goal Tracking
+* Calendar Integration
+* Advanced AI Personalization
+* Mobile Application Support
