@@ -36,26 +36,6 @@ An AI-powered productivity platform that helps users make better use of their av
 4. AI generates personalized micro-learning activities and productive tasks.
 5. User activity history is stored to reduce repetitive recommendations.
 
-## Screenshots
-
-### Login Page
-
-![Login](screenshots/login.png)
-
-### Recommendation Dashboard
-
-![Dashboard](screenshots/dashboard.png)
-
-### Generated Activities
-
-![Activities](screenshots/activities.png)
-
-### Activity History
-
-![History](screenshots/history.png)
-
-> Add screenshots inside the `screenshots` folder to display them automatically in GitHub.
-
 ## Project Structure
 
 ```text
