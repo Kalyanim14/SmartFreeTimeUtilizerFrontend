@@ -1,4 +1,6 @@
-## For backend repository please visit ### https://github.com/Kalyanim14/Flask_SmartFreeTimeUtilizer.git 
+## Backend repository
+
+### https://github.com/Kalyanim14/Flask_SmartFreeTimeUtilizer.git 
 
 # React + Vite
 
