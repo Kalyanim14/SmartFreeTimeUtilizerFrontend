@@ -1,102 +1,12 @@
-import React, { useState } from "react";
-import axios from "axios";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../api";
 
-function SignIn({ onSwitch, setIsLoggedIn }) {
+export default function SignIn({ onSwitch, setIsLoggedIn }) {
   const [form, setForm] = useState({ username: "", password: "" });
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const API_URL =
-        import.meta.env.MODE === "production"
-    ? "https://flask-smartfreetimeutilizer.onrender.com/"
-    : "http://localhost:5000";
-      const res = await axios.post(`${API_URL}/signin`, {
-        username: form.username,
-        password: form.password,
-      });
-
-      setMessage(res.data.message || "");
-
-      if (res.status === 200 ) {
-        localStorage.setItem("username", form.username);
-        if (res.data.name) localStorage.setItem("name", res.data.name);
-        setIsLoggedIn(true);
-        navigate("/timeutilizer");
-      }
-    } catch (err) {
-      console.error("SignIn error:", err);
-      setMessage(err.response?.data?.message || err.message || "Something went wrong!");
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-green-200 to-green-300">
-      <div className="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-80 sm:w-96 transition-transform transform hover:scale-[1.02] duration-300">
-        <h2 className="text-3xl font-bold mb-6 text-center text-green-800">
-          Welcome Back 👋
-        </h2>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col">
-            <label className="text-sm font-semibold text-green-700 mb-1">
-              Username
-            </label>
-            <input
-              type="text"
-              placeholder="Enter your username"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-              className="border border-green-300 rounded-xl px-3 py-2 shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-500 transition"
-            />
-          </div>
-
-          <div className="flex flex-col">
-            <label className="text-sm font-semibold text-green-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="border border-green-300 rounded-xl px-3 py-2 shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-green-500 transition"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="bg-green-600 text-white py-2.5 mt-2 rounded-xl shadow-md font-semibold tracking-wide hover:bg-green-700 hover:shadow-lg transition-all duration-300"
-          >
-            Sign In
-          </button>
-        </form>
-
-        {message && (
-          <p
-            className={`text-center text-sm mt-4 font-medium ${
-              message.includes("success") ? "text-green-700" : "text-red-600"
-            }`}
-          >
-            {message}
-          </p>
-        )}
-
-        <p className="text-center mt-5 text-sm text-green-800">
-          Don’t have an account?{" "}
-          <button
-            onClick={onSwitch}
-            className="text-green-700 underline font-semibold hover:text-green-900 transition"
-          >
-            Sign Up
-          </button>
-        </p>
-      </div>
-    </div>
-  );
+  const submit = async (event) => { event.preventDefault(); try { const { data } = await api.post("/signin", form); localStorage.setItem("token", data.token); localStorage.setItem("username", form.username); localStorage.setItem("name", data.name || ""); setIsLoggedIn(true); navigate("/dashboard"); } catch (error) { setMessage(error.response?.data?.message || "Unable to sign in."); } };
+  return <AuthFrame title="Welcome back"><form onSubmit={submit} className="space-y-4"><input required placeholder="Username" value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} className="w-full rounded-lg border p-3"/><input required type="password" placeholder="Password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} className="w-full rounded-lg border p-3"/><button className="w-full rounded-lg bg-indigo-600 py-3 font-medium text-white">Sign in</button></form>{message && <p className="mt-3 text-sm text-rose-600">{message}</p>}<p className="mt-5 text-sm">New here? <button onClick={onSwitch} className="font-medium text-indigo-600">Create an account</button></p></AuthFrame>;
 }
-
-export default SignIn;
+function AuthFrame({ title, children }) { return <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-100 to-violet-100 p-5"><section className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl"><h1 className="mb-6 text-3xl font-bold text-slate-900">{title}</h1>{children}</section></main>; }

@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+body { margin: 0; min-width: 320px; background: #f8fafc; color: #1e293b; }
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
